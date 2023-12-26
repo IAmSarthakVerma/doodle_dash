@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
+import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/services.dart';
 
 import '../doodle_dash.dart';
@@ -48,13 +49,11 @@ class Player extends SpriteGroupComponent<PlayerState>
     await super.onLoad();
 
     // Add collision detection on Dash
-    await add(CircleHitbox());
+    await add(CircleHitbox(anchor: const Anchor(0, -0.10)));
 
     await _loadCharacterSprites();
     current = PlayerState.center;
   }
-
-
 
   @override
   void update(double dt) {
@@ -138,6 +137,7 @@ class Player extends SpriteGroupComponent<PlayerState>
   void onCollision(Set<Vector2> intersectionPoints, PositionComponent other) {
     super.onCollision(intersectionPoints, other);
     if (other is EnemyPlatform && !isInvincible) {
+      game.audio.play('enemy.mp3');
       gameRef.onLose();
       return;
     }
@@ -156,21 +156,26 @@ class Player extends SpriteGroupComponent<PlayerState>
     // Only want Dash to  “jump” when she is falling + collides with the top of a platform
     if (isMovingDown && isCollidingVertically) {
       current = PlayerState.center;
-      if (other is NormalPlatform) {
-        jump();
-        return;
-      } else if (other is SpringBoard) {
-        jump(specialJumpSpeed: jumpSpeed * 2);
-        return;
-      } else if (other is BrokenPlatform &&
+
+      if (other is BrokenPlatform &&
           other.current == BrokenPlatformState.cracked) {
         jump();
+        game.audio.play('broken_platform.mp3');
         other.breakPlatform();
         return;
       }
 
-      if (other is Rocket || other is NooglerHat) {
-        enablePowerUp = true;
+      switch (other.runtimeType) {
+        case NormalPlatform:
+          game.audio.play('normal_platform.mp3');
+          jump();
+          return;
+        case SpringBoard:
+          game.audio.play('trampoline.mp3');
+          jump(specialJumpSpeed: jumpSpeed * 2);
+          return;
+        case Rocket || NooglerHat:
+          enablePowerUp = true;
       }
     }
 
@@ -178,13 +183,19 @@ class Player extends SpriteGroupComponent<PlayerState>
 
     if (other is Rocket) {
       current = PlayerState.rocket;
+
+      game.audio.play('rocket.mp3');
       jump(specialJumpSpeed: jumpSpeed * other.jumpSpeedMultiplier);
       return;
     } else if (other is NooglerHat) {
-      if (current == PlayerState.center) current = PlayerState.nooglerCenter;
-      if (current == PlayerState.left) current = PlayerState.nooglerLeft;
-      if (current == PlayerState.right) current = PlayerState.nooglerRight;
+      current = switch (current) {
+        PlayerState.center => PlayerState.nooglerCenter,
+        PlayerState.left => PlayerState.nooglerLeft,
+        PlayerState.right => PlayerState.nooglerRight,
+        _ => current
+      };
       _removePowerupAfterTime(other.activeLengthInMS);
+      game.audio.play('noogler_hat.mp3');
       jump(specialJumpSpeed: jumpSpeed * other.jumpSpeedMultiplier);
       return;
     }

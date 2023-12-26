@@ -1,8 +1,10 @@
+import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flame/input.dart';
+import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/material.dart';
 
-import './world.dart';
+import './world.dart' as doodle_dash_world;
 import 'managers/managers.dart';
 import 'sprites/sprites.dart';
 
@@ -13,15 +15,23 @@ class DoodleDash extends FlameGame
   DoodleDash({super.children});
 
   late Player player;
-  final World _world = World();
+  final doodle_dash_world.DoodleDashWorld _world =
+      doodle_dash_world.DoodleDashWorld();
   ObjectManager objectManager = ObjectManager();
   LevelManager levelManager = LevelManager();
   GameManager gameManager = GameManager();
+  AudioManager audio = AudioManager();
 
   int screenBufferSpace = 300;
 
   @override
   Future<void> onLoad() async {
+    debugMode = true;
+
+    await add(audio);
+
+    await audio.initialize();
+
     await add(_world);
 
     // add Game Manager
@@ -32,6 +42,8 @@ class DoodleDash extends FlameGame
 
     // add level/difficulty manager
     await add(levelManager);
+
+    await add(FpsTextComponent(position: Vector2(0, 800)));
   }
 
   @override
@@ -58,6 +70,8 @@ class DoodleDash extends FlameGame
         camera.position.y + _world.size.y,
       );
       camera.worldBounds = worldBounds;
+
+      camera.viewport = FixedResolutionViewport(Vector2(800, 800));
 
       checkLevelUp();
       // Camera should only follow Dash when she's moving up, if she's following down
@@ -144,6 +158,7 @@ class DoodleDash extends FlameGame
   }
 
   void startGame() {
+    audio.play('start_game.mp3');
     setCharacter();
     initializeGameStart();
     gameManager.state = GameState.playing;
@@ -155,7 +170,13 @@ class DoodleDash extends FlameGame
     overlays.remove('gameOverOverlay');
   }
 
+  void goHome() {
+    gameManager.state = GameState.intro;
+    overlays.remove('gameOverOverlay');
+  }
+
   void onLose() {
+    audio.play('game_over.mp3');
     gameManager.state = GameState.gameOver;
     player.removeFromParent();
     overlays.add('gameOverOverlay');
